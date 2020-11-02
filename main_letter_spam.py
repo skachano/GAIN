@@ -36,7 +36,9 @@ def main (args):
   gain_parameters = {'batch_size': args.batch_size,
                      'hint_rate': args.hint_rate,
                      'alpha': args.alpha,
-                     'iterations': args.iterations}
+                     'iterations': args.iterations, 
+                     'checkpoint_dir': args.checkpoint_dir,
+                     'data_name': args.data_name}
   
   # Load data and introduce missingness
   ori_data_x, miss_data_x, data_m = data_loader(data_name, miss_rate)
@@ -49,6 +51,9 @@ def main (args):
   
   print()
   print('RMSE Performance: ' + str(np.round(rmse, 4)))
+
+  np.savetxt('./imputed_spam.csv',imputed_data_x,delimiter=',')
+  np.savetxt('./missing_spam.csv',miss_data_x,delimiter=',')
   
   return imputed_data_x, rmse
 
@@ -86,6 +91,8 @@ if __name__ == '__main__':
       help='number of training interations',
       default=10000,
       type=int)
+  parser.add_argument('--checkpoint_dir', dest='checkpoint_dir', default='./checkpoint', help='models are saved here')
+
   
   args = parser.parse_args() 
   

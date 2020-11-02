@@ -7,9 +7,11 @@ Contact: jsyoon0823@gmail.com
 '''
 
 # Necessary packages
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 import numpy as np
 from tqdm import tqdm
+import os
 
 from utils import normalization, renormalization, rounding
 from utils import xavier_init
@@ -38,6 +40,8 @@ def gain (data_x, gain_parameters):
   hint_rate = gain_parameters['hint_rate']
   alpha = gain_parameters['alpha']
   iterations = gain_parameters['iterations']
+  checkpoint_dir = gain_parameters['checkpoint_dir']
+  data_name = gain_parameters['data_name']
   
   # Other parameters
   no, dim = data_x.shape
@@ -72,14 +76,14 @@ def gain (data_x, gain_parameters):
   
   #Generator variables
   # Data + Mask as inputs (Random noise is in missing components)
-  G_W1 = tf.Variable(xavier_init([dim*2, h_dim]))  
-  G_b1 = tf.Variable(tf.zeros(shape = [h_dim]))
+  G_W1 = tf.Variable(xavier_init([dim*2, h_dim]), name='G_W1')
+  G_b1 = tf.Variable(tf.zeros(shape = [h_dim]), name='G_b1')
   
-  G_W2 = tf.Variable(xavier_init([h_dim, h_dim]))
-  G_b2 = tf.Variable(tf.zeros(shape = [h_dim]))
+  G_W2 = tf.Variable(xavier_init([h_dim, h_dim]), name='G_W2')
+  G_b2 = tf.Variable(tf.zeros(shape = [h_dim]), name='G_b2')
   
-  G_W3 = tf.Variable(xavier_init([h_dim, dim]))
-  G_b3 = tf.Variable(tf.zeros(shape = [dim]))
+  G_W3 = tf.Variable(xavier_init([h_dim, dim]), name='G_W3')
+  G_b3 = tf.Variable(tf.zeros(shape = [dim]), name='G_b3')
   
   theta_G = [G_W1, G_W2, G_W3, G_b1, G_b2, G_b3]
   
@@ -103,6 +107,19 @@ def gain (data_x, gain_parameters):
     D_logit = tf.matmul(D_h2, D_W3) + D_b3
     D_prob = tf.nn.sigmoid(D_logit)
     return D_prob
+
+
+  # save models
+  def save_model(sess, checkpoint_dir):
+    model_name = "gain_model"
+    model_dir = "%s" % (data_name)
+    checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+
+    saver.save(sess,
+                    os.path.join(checkpoint_dir, model_name))
   
   ## GAIN structure
   # Generator
@@ -131,6 +148,7 @@ def gain (data_x, gain_parameters):
   G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
   
   ## Iterations
+  saver = tf.train.Saver(max_to_keep=1)
   sess = tf.Session()
   sess.run(tf.global_variables_initializer())
    
@@ -155,6 +173,7 @@ def gain (data_x, gain_parameters):
     _, G_loss_curr, MSE_loss_curr = \
     sess.run([G_solver, G_loss_temp, MSE_loss],
              feed_dict = {X: X_mb, M: M_mb, H: H_mb})
+  save_model(sess, checkpoint_dir)
             
   ## Return imputed data      
   Z_mb = uniform_sampler(0, 0.01, no, dim) 
